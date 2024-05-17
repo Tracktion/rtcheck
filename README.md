@@ -20,8 +20,8 @@ Dynamic library to catch run-time safety violations heavily inspired by [RADSan]
   - [ ] Large std::function
   - [ ] Atomic 4*ptr size
 - [ ] Passes
- - [ ] Atomic double
- - [ ] Small std::function
+  - [ ] Atomic double
+  - [ ] Small std::function
 - [ ] Running on CI
 - [ ] Tests via CTest (can catch failues)
 
