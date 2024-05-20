@@ -23,6 +23,12 @@ foreach(file ${test_files})
       rt_check
   )
 
+  if (${CMAKE_SYSTEM_NAME} STREQUAL Linux)
+    target_link_libraries(${test_name}
+        atomic
+    )
+  endif()
+
   target_link_options(${test_name} PRIVATE
       "-rdynamic"
   )

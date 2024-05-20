@@ -16,14 +16,16 @@ Dynamic library to catch run-time safety violations heavily inspired by [RADSan]
 
 ## CI/Tests
 - [ ] Failures
-  - [ ] Throwing exceptions
-  - [ ] Large std::function
-  - [ ] Atomic 4*ptr size
+  - [x] Throwing exceptions
+  - [x] Large std::function
+  - [x] Atomic 4*ptr size
+  - [ ] Dynamic loading of a library
 - [ ] Passes
-  - [ ] Atomic double
-  - [ ] Small std::function
-- [ ] Running on CI
-- [ ] Tests via CTest (can catch failues)
+  - [x] Atomic double
+  - [x] Small std::function
+- [x] Running on CI Linux
+- [x] Running on CI macOS
+- [x] Tests via CTest (can catch failues)
 
 ## Packages
 - [ ] cpack
