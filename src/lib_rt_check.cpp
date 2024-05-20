@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <fcntl.h>
+#include <sys/mman.h>
 
 #include "lib_rt_check.h"
 
@@ -64,18 +65,66 @@ extern "C" void *malloc(size_t size)
 {
     log_function_if_realtime_context (__func__);
 
-    static auto real_malloc = (void* (*)(size_t))dlsym(RTLD_NEXT, "malloc");
-    return real_malloc(size);
+    static auto real = (void* (*)(size_t))dlsym(RTLD_NEXT, "malloc");
+    return real(size);
+}
+
+extern "C" void *calloc(size_t size, size_t item_size)
+{
+    log_function_if_realtime_context (__func__);
+
+    static auto real = (void* (*)(size_t, size_t))dlsym(RTLD_NEXT, "calloc");
+    return real(size, item_size);
+}
+
+extern "C" void *realloc(void *ptr, size_t new_size)
+{
+    log_function_if_realtime_context (__func__);
+
+    static auto real = (void* (*)(void*, size_t))dlsym(RTLD_NEXT, "realloc");
+    return real(ptr, new_size);
+}
+
+extern "C" void *valloc(size_t size)
+{
+    log_function_if_realtime_context (__func__);
+
+    static auto real = (void* (*)(size_t))dlsym(RTLD_NEXT, "valloc");
+    return real(size);
 }
 
 extern "C" void free(void* ptr)
 {
     log_function_if_realtime_context (__func__);
 
-    static auto real_free = (void (*)(void*))dlsym(RTLD_NEXT, "free");
-    return real_free(ptr);
+    static auto real = (void (*)(void*))dlsym(RTLD_NEXT, "free");
+    return real(ptr);
 }
 
+extern "C" int posix_memalign(void **memptr, size_t alignment, size_t size)
+{
+    log_function_if_realtime_context (__func__);
+
+    static auto real = (int (*)(void**, size_t, size_t))dlsym(RTLD_NEXT, "posix_memalign");
+    return real(memptr, alignment, size);
+}
+
+extern "C" void *mmap(void* addr, size_t length, int prot, int flags,
+                      int fd, off_t offset)
+{
+    log_function_if_realtime_context (__func__);
+
+    static auto real = (void* (*)(void*, size_t, int, int, int, off_t))dlsym(RTLD_NEXT, "mmap");
+    return real(addr, length, prot, flags, fd, offset);
+}
+
+extern "C" int munmap(void* addr, size_t length)
+{
+    log_function_if_realtime_context (__func__);
+
+    static auto real = (int (*)(void*, size_t))dlsym(RTLD_NEXT, "munmap");
+    return real(addr, length);
+}
 
 // //==============================================================================
 // // threads
@@ -94,6 +143,34 @@ extern "C" int pthread_mutex_unlock(pthread_mutex_t *mutex)
 
     static auto real_pthread_mutex_unlock = (int (*)(pthread_mutex_t *))dlsym(RTLD_NEXT, "pthread_mutex_unlock");;
     return real_pthread_mutex_unlock(mutex);
+}
+
+//==============================================================================
+// sleep
+//==============================================================================
+extern "C" unsigned int sleep(unsigned int seconds)
+{
+    log_function_if_realtime_context (__func__);
+
+    static auto real = (unsigned int (*)(unsigned int))dlsym(RTLD_NEXT, "sleep");
+    return real(seconds);
+}
+
+extern "C" int usleep(useconds_t useconds)
+{
+    log_function_if_realtime_context (__func__);
+
+    static auto real = (int (*)(useconds_t))dlsym(RTLD_NEXT, "usleep");
+    return real(useconds);
+}
+
+extern "C" int nanosleep(const struct timespec *req,
+                         struct timespec * rem)
+{
+    log_function_if_realtime_context (__func__);
+
+    static auto real = (int (*)(const struct timespec *, struct timespec *))dlsym(RTLD_NEXT, "nanosleep");
+    return real(req, rem);
 }
 
 //==============================================================================
