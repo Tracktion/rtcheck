@@ -166,11 +166,125 @@ extern "C" long int syscall(long int sid, ...)
     return real_syscall (sid);
 }
 
+// The following is extracted from LLVM:
+//===-- interception.h ------------------------------------------*- C++ -*-===//
+//
+// Part of the LLVM Project, under the Apache License v2.0 with LLVM Exceptions.
+// See https://llvm.org/LICENSE.txt for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//===----------------------------------------------------------------------===//
+//
+// This file is a part of AddressSanitizer, an address sanity checker.
+//
+// Machinery for providing replacements/wrappers for system functions.
+//===----------------------------------------------------------------------===//
+
 //==============================================================================
-// init
+// macOS
 //==============================================================================
-__attribute__((constructor))
-void init()
-{
-    printf ("Hello librt_check!\n");
-}
+// #ifdef __APPLE__
+// #include <sys/cdefs.h>
+//
+// #define SIZE_T size_t;
+//
+// using uptr      = SIZE_T;
+// // using sptr      = SSIZE_T;
+// // using sptr      = PTRDIFF_T;
+// // using s64       = INTMAX_T;
+// // using u64       = UINTMAX_T;
+// // using OFF_T     = OFF_T;
+// // using OFF64_T   = OFF64_T;
+//
+// struct interpose_substitution {
+//     const uptr replacement;
+//     const uptr original;
+// };
+//
+// // For a function foo() create a global pair of pointers { wrap_foo, foo } in
+// // the __DATA,__interpose section.
+// // As a result all the calls to foo() will be routed to wrap_foo() at runtime.
+// #define INTERPOSER(func_name) __attribute__((used))     \
+// const interpose_substitution substitution_##func_name[] \
+// __attribute__((section("__DATA, __interpose"))) = { \
+// { reinterpret_cast<const uptr>(WRAP(func_name)),    \
+// reinterpret_cast<const uptr>(func_name) }         \
+// }
+//
+// // For a function foo() and a wrapper function bar() create a global pair
+// // of pointers { bar, foo } in the __DATA,__interpose section.
+// // As a result all the calls to foo() will be routed to bar() at runtime.
+// #define INTERPOSER_2(func_name, wrapper_name) __attribute__((used)) \
+// const interpose_substitution substitution_##func_name[]             \
+// __attribute__((section("__DATA, __interpose"))) = {             \
+// { reinterpret_cast<const uptr>(wrapper_name),                   \
+// reinterpret_cast<const uptr>(func_name) }                     \
+// }
+//
+// # define WRAP(x) wrap_##x
+// # define TRAMPOLINE(x) WRAP(x)
+// # define INTERCEPTOR_ATTRIBUTE
+// # define DECLARE_WRAPPER(ret_type, func, ...)
+//
+// # define REAL(x) x
+// # define DECLARE_REAL(ret_type, func, ...) \
+// extern "C" ret_type func(__VA_ARGS__);
+// # define ASSIGN_REAL(x, y)
+//
+// #define INTERCEPTOR_ZZZ(suffix, ret_type, func, ...)  \
+// extern "C" ret_type func(__VA_ARGS__) suffix;       \
+// extern "C" ret_type WRAP(func)(__VA_ARGS__);        \
+// INTERPOSER(func);                                   \
+// extern "C" INTERCEPTOR_ATTRIBUTE ret_type WRAP(func)(__VA_ARGS__)
+//
+// #define INTERCEPTOR(ret_type, func, ...) \
+// INTERCEPTOR_ZZZ(/*no symbol variants*/, ret_type, func, __VA_ARGS__)
+//
+// #define INTERCEPTOR_WITH_SUFFIX(ret_type, func, ...) \
+// INTERCEPTOR_ZZZ(__DARWIN_ALIAS_C(func), ret_type, func, __VA_ARGS__)
+//
+// // Override |overridee| with |overrider|.
+// #define OVERRIDE_FUNCTION(overridee, overrider) \
+// INTERPOSER_2(overridee, WRAP(overrider))
+//
+// INTERCEPTOR(void, free, void *ptr)
+// {
+//     if (ptr != NULL)
+//         log_function_if_realtime_context (__func__);
+//
+//     return REAL(free)(ptr);
+// }
+//
+// INTERCEPTOR(void*, malloc, size_t size)
+// {
+//     log_function_if_realtime_context (__func__);
+//     return REAL(malloc)(size);
+// }
+//
+// INTERCEPTOR(int, stat, const char* pathname, struct stat* statbuf)
+// {
+//     log_function_if_realtime_context (__func__);
+//     return REAL(stat)(pathname, statbuf);
+// }
+//
+// #define INTERCEPT_FUNCTION_MAC(func)
+// #define INTERCEPT_FUNCTION_VER_MAC(func, symver)
+//
+// # define INTERCEPT_FUNCTION(func) INTERCEPT_FUNCTION_MAC(func)
+// # define INTERCEPT_FUNCTION_VER(func, symver) \
+// INTERCEPT_FUNCTION_VER_MAC(func, symver)
+//
+// //==============================================================================
+// // init
+// //==============================================================================
+// __attribute__((constructor))
+// void init()
+// {
+//     INTERCEPT_FUNCTION(malloc)
+//     INTERCEPT_FUNCTION(free)
+//     INTERCEPT_FUNCTION(stat)
+//     printf ("Hello librt_check!\n");
+// }
+//
+// #endif //__APPLE__
+
