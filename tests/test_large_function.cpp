@@ -8,14 +8,9 @@ struct doubles
 
 int main()
 {
-    std::function<void()> fn;
-
-    {
-        realtime_context rc;
-        doubles d;
-        std::function<void()> fn = [d] { };
-
-    }
+    realtime_context rc;
+    doubles d;
+    std::function<void()> fn = [d] { };
 
     return 0;
 }

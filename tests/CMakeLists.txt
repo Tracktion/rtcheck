@@ -31,3 +31,5 @@ foreach(file ${test_files})
   set_property(TEST ${test_name} PROPERTY WILL_FAIL TRUE)
 
 endforeach()
+
+set(CMAKE_CTEST_ARGUMENTS "--build-and-test;${CMAKE_SOURCE_DIR};${CMAKE_BINARY_DIR};--build-generator;${CMAKE_GENERATOR};--test-command ctest")
