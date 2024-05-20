@@ -6,7 +6,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 #======================================
 message(CMAKE_CURRENT_SOURCE_DIR: ${CMAKE_CURRENT_SOURCE_DIR})
-file(GLOB test_files LIST_DIRECTORIES false "${CMAKE_CURRENT_SOURCE_DIR}" test_*.cpp)
+file(GLOB test_files LIST_DIRECTORIES false "${CMAKE_CURRENT_SOURCE_DIR}" pass_*.cpp fail_*.cpp)
 message(test_files: ${test_files})
 
 #======================================
@@ -28,7 +28,10 @@ foreach(file ${test_files})
   )
 
   add_test (NAME ${test_name} COMMAND ${test_name})
-  set_property(TEST ${test_name} PROPERTY WILL_FAIL TRUE)
+
+  if(${test_name} MATCHES "fail")
+    set_property(TEST ${test_name} PROPERTY WILL_FAIL TRUE)
+  endif()
 
 endforeach()
 
