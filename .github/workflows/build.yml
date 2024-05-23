@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
 
 env:
-  BUILD_CONFIG: Release
+  BUILD_CONFIG: Debug
   BUILD_DIR: build
 
 jobs:
