@@ -1,6 +1,11 @@
 #include <dlfcn.h>
 #include <stdarg.h>
 
+#if __APPLE__
+ #include <libkern/OSAtomic.h>
+ #include <os/lock.h>
+#endif
+
 #include "lib_rt_check.h"
 #include "interception.h"
 
@@ -95,6 +100,13 @@ INTERCEPTOR(int, munmap, void* addr, size_t length)
 //==============================================================================
 // threads
 //==============================================================================
+INTERCEPTOR(int, pthread_create, pthread_t *thread, const pthread_attr_t *attr, void *(*start_routine)(void *), void *arg)
+{
+    log_function_if_realtime_context (__func__);
+    INTERCEPT_FUNCTION(int, pthread_create, pthread_t *, const pthread_attr_t *, void *(*)(void *), void *);
+    return REAL(pthread_create)(thread, attr, start_routine, arg);
+}
+
 INTERCEPTOR(int, pthread_mutex_lock, pthread_mutex_t *mutex)
 {
     log_function_if_realtime_context (__func__);
@@ -111,7 +123,98 @@ INTERCEPTOR(int, pthread_mutex_unlock, pthread_mutex_t *mutex)
     return REAL(pthread_mutex_unlock)(mutex);
 }
 
+INTERCEPTOR(int, pthread_join, pthread_t thread, void **value_ptr)
+{
+    log_function_if_realtime_context (__func__);
+
+    INTERCEPT_FUNCTION(int, pthread_join, pthread_t, void **);
+    return REAL(pthread_join)(thread, value_ptr);
+}
+
+INTERCEPTOR(int, pthread_cond_signal, pthread_cond_t *cond)
+{
+    log_function_if_realtime_context (__func__);
+
+    INTERCEPT_FUNCTION(int, pthread_cond_signal, pthread_cond_t *);
+    return REAL(pthread_cond_signal)(cond);
+}
+
+INTERCEPTOR(int, pthread_cond_broadcast, pthread_cond_t *cond)
+{
+    log_function_if_realtime_context (__func__);
+
+    INTERCEPT_FUNCTION(int, pthread_cond_broadcast, pthread_cond_t *);
+    return REAL(pthread_cond_broadcast)(cond);
+}
+
+INTERCEPTOR(int, pthread_cond_wait, pthread_cond_t *cond, pthread_mutex_t *mutex)
+{
+    log_function_if_realtime_context (__func__);
+
+    INTERCEPT_FUNCTION(int, pthread_cond_wait, pthread_cond_t *, pthread_mutex_t *);
+    return REAL(pthread_cond_wait)(cond, mutex);
+}
+
+INTERCEPTOR(int, pthread_rwlock_init, pthread_rwlock_t *rwlock,
+            const pthread_rwlockattr_t *attr)
+{
+    log_function_if_realtime_context (__func__);
+
+    INTERCEPT_FUNCTION(int, pthread_rwlock_init, pthread_rwlock_t *, const pthread_rwlockattr_t *);
+    return REAL(pthread_rwlock_init)(rwlock, attr);
+}
+
+INTERCEPTOR(int, pthread_rwlock_destroy, pthread_rwlock_t *rwlock)
+{
+    log_function_if_realtime_context (__func__);
+
+    INTERCEPT_FUNCTION(int, pthread_rwlock_destroy, pthread_rwlock_t *);
+    return REAL(pthread_rwlock_destroy)(rwlock);
+}
+
+INTERCEPTOR(int, pthread_cond_timedwait, pthread_cond_t *cond,
+            pthread_mutex_t *mutex, const timespec *ts)
+{
+    log_function_if_realtime_context (__func__);
+
+    INTERCEPT_FUNCTION(int, pthread_cond_timedwait, pthread_cond_t *,
+                        pthread_mutex_t *, const timespec *);
+    return REAL(pthread_cond_timedwait)(cond, mutex, ts);
+}
+
+INTERCEPTOR(int, pthread_rwlock_rdlock, pthread_rwlock_t *lock)
+{
+    log_function_if_realtime_context (__func__);
+
+    INTERCEPT_FUNCTION(int, pthread_rwlock_rdlock, pthread_rwlock_t *);
+    return REAL(pthread_rwlock_rdlock)(lock);
+}
+
+INTERCEPTOR(int, pthread_rwlock_unlock, pthread_rwlock_t *lock)
+{
+    log_function_if_realtime_context (__func__);
+
+    INTERCEPT_FUNCTION(int, pthread_rwlock_unlock, pthread_rwlock_t *);
+    return REAL(pthread_rwlock_unlock)(lock);
+}
+
+INTERCEPTOR(int, pthread_rwlock_wrlock, pthread_rwlock_t *lock)
+{
+    log_function_if_realtime_context (__func__);
+
+    INTERCEPT_FUNCTION(int, pthread_rwlock_wrlock, pthread_rwlock_t *);
+    return REAL(pthread_rwlock_wrlock)(lock);
+}
+
+
 #ifndef __APPLE__
+INTERCEPTOR(int, pthread_spin_lock, pthread_spinlock_t *spinlock)
+{
+    log_function_if_realtime_context (__func__);
+    INTERCEPT_FUNCTION(int, pthread_spin_lock, pthread_spinlock_t*);
+    return REAL(pthread_spin_lock)(spinlock);
+}
+
 INTERCEPTOR(int, futex, int *uaddr, int op, int val, const struct timespec *timeout, int *uaddr2, int val3)
 {
     log_function_if_realtime_context (__func__);
@@ -237,6 +340,32 @@ INTERCEPTOR(long int, syscall, long int sid, ...)
 
     return REAL(syscall)(sid);
 }
+
+
+//==============================================================================
+// Apple
+//==============================================================================
+#if __APPLE__
+
+#pragma clang diagnostic push
+// OSSpinLockLock is deprecated, but still in use in libc++
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
+INTERCEPTOR(void, OSSpinLockLock, volatile OSSpinLock *lock)
+{
+    log_function_if_realtime_context (__func__);
+    return REAL(OSSpinLockLock)(lock);
+}
+
+INTERCEPTOR(void, os_unfair_lock_lock, os_unfair_lock_t lock)
+{
+    log_function_if_realtime_context (__func__);
+    return REAL(os_unfair_lock_lock)(lock);
+}
+
+#pragma clang diagnostic pop
+
+#endif
 
 //==============================================================================
 // init
