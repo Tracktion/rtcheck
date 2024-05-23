@@ -31,4 +31,4 @@ jobs:
         env:
           GENERATOR: ${{ matrix.generator }}
         run: |
-          ctest --build-and-test . ./build_$OSTYPE --build-generator $GENERATOR --test-command ctest --verbose
+          ctest --build-and-test . ./build_$OSTYPE --build-generator $GENERATOR --test-command ctest -C $BUILD_CONFIG --verbose
