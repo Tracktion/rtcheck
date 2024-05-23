@@ -3,7 +3,7 @@
 
 struct doubles
 {
-    double d1, d2, d3, d4;
+    double d1[4];
 };
 
 int main()

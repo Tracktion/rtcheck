@@ -4,9 +4,13 @@
 #include "lib_rt_check.h"
 #include "interception.h"
 
+static bool has_initialised = false;
 
 inline void log_function_if_realtime_context (const char* function_name)
 {
+    if (! has_initialised)
+        return;
+
     if (! is_real_time_context())
          return;
 
@@ -20,15 +24,6 @@ inline void log_function_if_realtime_context (const char* function_name)
 //==============================================================================
 // memory
 //==============================================================================
-// extern "C" void *malloc(size_t size)
-// {
-//     log_function_if_realtime_context (__func__);
-//
-//     static auto real = (void* (*)(size_t))dlsym(RTLD_NEXT, "malloc");
-//     return real(size);
-// }
-
-
 #ifndef __APPLE__
 INTERCEPTOR(void*, malloc, size_t size)
 {
@@ -129,81 +124,81 @@ INTERCEPTOR(int, futex, int *uaddr, int op, int val, const struct timespec *time
 //==============================================================================
 // sleep
 //==============================================================================
-extern "C" unsigned int sleep(unsigned int seconds)
+INTERCEPTOR(unsigned int, sleep, unsigned int seconds)
 {
     log_function_if_realtime_context (__func__);
 
     static auto real = (unsigned int (*)(unsigned int))dlsym(RTLD_NEXT, "sleep");
-    return real(seconds);
+    return REAL(sleep)(seconds);
 }
 
-extern "C" int usleep(useconds_t useconds)
+INTERCEPTOR(int, usleep, useconds_t useconds)
 {
     log_function_if_realtime_context (__func__);
 
-    static auto real = (int (*)(useconds_t))dlsym(RTLD_NEXT, "usleep");
-    return real(useconds);
+    INTERCEPT_FUNCTION(int, usleep, useconds_t);
+    return REAL(usleep)(useconds);
 }
 
-extern "C" int nanosleep(const struct timespec *req,
-                         struct timespec * rem)
+INTERCEPTOR(int, nanosleep, const struct timespec *req, struct timespec * rem)
 {
     log_function_if_realtime_context (__func__);
 
-    static auto real = (int (*)(const struct timespec *, struct timespec *))dlsym(RTLD_NEXT, "nanosleep");
-    return real(req, rem);
+    INTERCEPT_FUNCTION(int, nanosleep, const struct timespec *, struct timespec *);
+    return REAL(nanosleep)(req, rem);
 }
 
 //==============================================================================
 // files
 //==============================================================================
-extern "C" int stat(const char* pathname, struct stat* statbuf)
+INTERCEPTOR(int, stat, const char* pathname, struct stat* statbuf)
 {
     log_function_if_realtime_context (__func__);
 
-    static auto real_stat = (int (*)(const char*, struct stat*))dlsym(RTLD_NEXT, "stat");
-    return real_stat (pathname, statbuf);
+    INTERCEPT_FUNCTION(int, stat, const char*, struct stat*);
+    return REAL(stat)(pathname, statbuf);
 }
 
-extern "C" int fstat(int fd, struct stat *statbuf)
+INTERCEPTOR(int, fstat, int fd, struct stat *statbuf)
 {
     log_function_if_realtime_context (__func__);
 
-    static auto real_fstat = (int (*)(int, struct stat*))dlsym(RTLD_NEXT, "fstat");
-    return real_fstat (fd, statbuf);
+    INTERCEPT_FUNCTION(int, fstat, int, struct stat*);
+    return REAL(fstat)(fd, statbuf);
 }
 
-extern "C" int open(const char *path, int oflag, ...)
+INTERCEPTOR(int, open, const char *path, int oflag, ...)
 {
     log_function_if_realtime_context (__func__);
+
+    INTERCEPT_FUNCTION(int, open, const char*, int, ...);
 
     va_list args;
     va_start(args, oflag);
-    static auto real_open = (int (*)(const char*, int, ...))dlsym(RTLD_NEXT, "open");
-    auto result = real_open (path, oflag, args);
+    auto result = REAL(open)(path, oflag, args);
     va_end(args);
 
     return result;
 }
 
-extern "C" FILE* fopen(const char *path, const char *mode)
+INTERCEPTOR(FILE*, fopen, const char *path, const char *mode)
 {
     log_function_if_realtime_context (__func__);
 
-    static auto real_fopen = (FILE* (*)(const char*, const char*))dlsym(RTLD_NEXT, "fopen");
-    auto result = real_fopen (path, mode);
+    INTERCEPT_FUNCTION(FILE*, fopen, const char*, const char*);
+    auto result = REAL(fopen)(path, mode);
 
     return result;
 }
 
-extern "C" int openat(int fd, const char *path, int oflag, ...)
+INTERCEPTOR(int, openat, int fd, const char *path, int oflag, ...)
 {
     log_function_if_realtime_context (__func__);
 
     va_list args;
     va_start(args, oflag);
-    static auto real_openat = (int (*)(int, const char*, int, ...))dlsym(RTLD_NEXT, "openat");
-    auto result = real_openat (fd, path, oflag, args);
+    INTERCEPT_FUNCTION(int, openat, int, const char*, int, ...);
+    auto result = REAL(openat)(fd, path, oflag, args);
     va_end(args);
 
     return result;
@@ -213,32 +208,34 @@ extern "C" int openat(int fd, const char *path, int oflag, ...)
 //==============================================================================
 // system
 //==============================================================================
-extern "C" long schedule(void)
+#ifndef __APPLE__
+INTERCEPTOR(long, schedule, void)
 {
     log_function_if_realtime_context (__func__);
 
-    static auto real = (long (*)(void))dlsym(RTLD_NEXT, "schedule");
-    return real();
+    INTERCEPT_FUNCTION(long, schedule, void);
+    return REAL(schedule)();
 }
 
-extern "C" long context_switch(struct task_struct *prev, struct task_struct *next)
+INTERCEPTOR(long, context_switch, struct task_struct *prev, struct task_struct *next)
 {
     log_function_if_realtime_context (__func__);
 
-    static auto real = (long (*)(struct task_struct *, struct task_struct *))dlsym(RTLD_NEXT, "context_switch");
-    return real(prev, next);
+    INTERCEPT_FUNCTION(long, context_switch, struct task_struct *, struct task_struct *);
+    return REAL(context_switch)(prev, next);
 }
+#endif
 
-extern "C" long int syscall(long int sid, ...)
+INTERCEPTOR(long int, syscall, long int sid, ...)
 {
     log_function_if_realtime_context (__func__);
 
     va_list args;
     va_start(args, sid);
-    static auto real_syscall = (long (*)(long, ...))dlsym(RTLD_NEXT, "syscall");
+    INTERCEPT_FUNCTION(long, syscall, long, ...);
     va_end(args);
 
-    return real_syscall (sid);
+    return REAL(syscall)(sid);
 }
 
 //==============================================================================
@@ -247,9 +244,7 @@ extern "C" long int syscall(long int sid, ...)
 __attribute__((constructor))
 void init()
 {
-    // INTERCEPT_FUNCTION(malloc);
-    // INTERCEPT_FUNCTION(free)
-    // INTERCEPT_FUNCTION(stat)
+    has_initialised = true;
     printf ("Hello librt_check!\n");
 }
 
