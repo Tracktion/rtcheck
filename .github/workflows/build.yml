@@ -15,8 +15,10 @@ jobs:
         include:
           - name: linux
             os: ubuntu-latest
+            generator: "Ninja"
           - name: macOS
             os: macos-latest
+            generator: "Xcode"
 
     runs-on: ${{ matrix.os }}
     steps:
@@ -26,5 +28,7 @@ jobs:
 
       - name: "Build and test"
         shell: bash
+        env:
+          GENERATOR: ${{ matrix.generator }}
         run: |
-          ctest --build-and-test . ./build_$OSTYPE --build-generator "Ninja" --test-command ctest --verbose
+          ctest --build-and-test . ./build_$OSTYPE --build-generator $GENERATOR --test-command ctest --verbose
