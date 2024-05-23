@@ -27,5 +27,7 @@ jobs:
 
       - name: "Build and test"
         shell: bash
+        env:
+          GENERATOR: ${{ matrix.generator }}
         run: |
-          ctest --build-and-test . ./build_$OSTYPE --build-generator ${{ matrix.generator }} --test-command ctest --verbose
+          ctest --build-and-test . ./build_$OSTYPE --build-generator $GENERATOR --test-command ctest --verbose
