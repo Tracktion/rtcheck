@@ -15,7 +15,7 @@ jobs:
         include:
           - name: linux
             os: ubuntu-latest
-            generator: "Ninja"
+            generator: "Unix Makefiles"
           - name: macOS
             os: macos-latest
             generator: "Xcode"
