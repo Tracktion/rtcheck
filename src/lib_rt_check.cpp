@@ -11,7 +11,7 @@
 
 static bool has_initialised = false;
 
-inline void log_function_if_realtime_context (const char* function_name)
+void log_function_if_realtime_context (const char* function_name)
 {
     if (! has_initialised)
         return;
@@ -25,6 +25,7 @@ inline void log_function_if_realtime_context (const char* function_name)
     if (rt_check::get_error_mode() == rt_check::error_mode::exit)
         std::exit (1);
 }
+
 
 //==============================================================================
 // memory
@@ -54,6 +55,14 @@ INTERCEPTOR(void*, realloc, void *ptr, size_t new_size)
 
     INTERCEPT_FUNCTION(void*, realloc, void*, size_t);
     return REAL(realloc)(ptr, new_size);
+}
+
+INTERCEPTOR(void *, reallocf, void *ptr, size_t size)
+{
+    log_function_if_realtime_context (__func__);
+
+    INTERCEPT_FUNCTION(void*, reallocf, void*, size_t);
+    return REAL(reallocf)(ptr, size);
 }
 
 INTERCEPTOR(void*, valloc, size_t size)
