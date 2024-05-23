@@ -373,7 +373,7 @@ INTERCEPTOR(void, os_unfair_lock_lock, os_unfair_lock_t lock)
 __attribute__((constructor))
 void init()
 {
-    has_initialised = true;
     printf ("Hello librt_check!\n");
+    has_initialised = true;
 }
 
