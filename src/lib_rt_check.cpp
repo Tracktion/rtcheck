@@ -57,6 +57,7 @@ INTERCEPTOR(void*, realloc, void *ptr, size_t new_size)
     return REAL(realloc)(ptr, new_size);
 }
 
+#if __APPLE__
 INTERCEPTOR(void *, reallocf, void *ptr, size_t size)
 {
     log_function_if_realtime_context (__func__);
@@ -64,6 +65,7 @@ INTERCEPTOR(void *, reallocf, void *ptr, size_t size)
     INTERCEPT_FUNCTION(void*, reallocf, void*, size_t);
     return REAL(reallocf)(ptr, size);
 }
+#endif
 
 INTERCEPTOR(void*, valloc, size_t size)
 {

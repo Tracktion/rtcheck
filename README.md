@@ -21,7 +21,7 @@ Dynamic library to catch run-time safety violations heavily inspired by [RADSan]
   - [x] calloc ✔
   - [x] realloc ✔
   - [x] free ✔
-  - [x] reallocf ✔
+  - [x] reallocf (macOS) ✔
   - [x] valloc ✔
   - [x] posix_memalign ✔
   - [x] mmap ✔
