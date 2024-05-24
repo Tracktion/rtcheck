@@ -4,12 +4,59 @@
 #if __APPLE__
  #include <libkern/OSAtomic.h>
  #include <os/lock.h>
+ #include <malloc/malloc.h>
 #endif
 
 #include "lib_rt_check.h"
 #include "interception.h"
 
 static bool has_initialised = false;
+
+#if __APPLE__
+realtime_context_state& get_realtime_context_state()
+{
+    struct malloc_zone_wrapper
+    {
+        static void* internal_alloc (size_t size)
+        {
+            return malloc_zone_malloc (malloc_default_zone(), size);
+        }
+
+        static void internal_free (void *ptr)
+        {
+            malloc_zone_free (malloc_default_zone(), ptr);
+        }
+    };
+
+    static pthread_key_t key;
+    static pthread_once_t key_once = PTHREAD_ONCE_INIT;
+
+    auto make_tls_key = []
+    {
+        [[ maybe_unused ]]auto res = pthread_key_create (&key, malloc_zone_wrapper::internal_free);
+        assert(res == 0);
+    };
+
+    pthread_once (&key_once, make_tls_key);
+
+    auto *ptr = static_cast<realtime_context_state*> (pthread_getspecific (key));
+
+    if (ptr == nullptr)
+    {
+        ptr = static_cast<realtime_context_state*> (malloc_zone_wrapper::internal_alloc(sizeof (realtime_context_state)));
+        new(ptr) realtime_context_state();
+        pthread_setspecific (key, ptr);
+    }
+
+    return *ptr;
+}
+#else
+realtime_context_state& get_realtime_context_state()
+{
+    thread_local realtime_context_state rcs;
+    return rcs;
+}
+#endif
 
 void log_function_if_realtime_context (const char* function_name)
 {
@@ -36,7 +83,6 @@ void log_function_if_realtime_context (const char* function_name)
 //==============================================================================
 // memory
 //==============================================================================
-#ifndef __APPLE__
 INTERCEPTOR(void*, malloc, size_t size)
 {
     log_function_if_realtime_context (__func__);
@@ -44,7 +90,6 @@ INTERCEPTOR(void*, malloc, size_t size)
 
     return REAL(malloc)(size);
 }
-#endif
 
 
 INTERCEPTOR(void*, calloc, size_t size, size_t item_size)

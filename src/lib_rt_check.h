@@ -49,11 +49,7 @@ private:
 
 //==============================================================================
 /** Returns a realtime_context_state for the current thread. */
-inline realtime_context_state& get_realtime_context_state()
-{
-    thread_local realtime_context_state rcs;
-    return rcs;
-}
+realtime_context_state& get_realtime_context_state();
 
 //==============================================================================
 inline bool is_real_time_context()
