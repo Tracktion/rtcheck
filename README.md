@@ -27,10 +27,10 @@ Dynamic library to catch run-time safety violations heavily inspired by [RADSan]
   - [x] mmap ✔
   - [x] munmap ✔
 - Threads
-  - [x] pthread_create
+  - [x] pthread_create ✔
   - [x] pthread_mutex_lock ✔
   - [x] pthread_mutex_unlock ✔
-  - [x] pthread_join
+  - [x] pthread_join ✔
   - [x] pthread_cond_signal
   - [x] pthread_cond_broadcast
   - [x] pthread_cond_wait
