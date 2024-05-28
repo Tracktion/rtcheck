@@ -1,11 +1,12 @@
+#include <memory>
 #include <lib_rt_check.h>
 
 int main()
 {
-   #if __APPLE_
+   #if __APPLE__
     auto res = malloc (1024);
 
-    realtime_context rc;
+    rtc::realtime_context rc;
     res = reallocf (res, 1024 * 4);
 
     return 0;
