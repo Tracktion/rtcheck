@@ -6,7 +6,7 @@ int main()
 {
     std::mutex m;
 
-    realtime_context rc;
+    rtc::realtime_context rc;
     m.lock();
 
     return 0;

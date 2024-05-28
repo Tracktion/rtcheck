@@ -3,7 +3,7 @@
 
 int main()
 {
-    realtime_context rc;
+    rtc::realtime_context rc;
 
     try
     {

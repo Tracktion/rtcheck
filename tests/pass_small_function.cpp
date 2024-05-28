@@ -8,7 +8,7 @@ struct doubles
 
 int main()
 {
-    realtime_context rc;
+    rtc::realtime_context rc;
     doubles d;
     std::function<void()> fn = [d] { };
 

@@ -1,10 +1,11 @@
 #include <lib_rt_check.h>
+#include <memory>
 
 int main()
 {
-    realtime_context rc;
+    rtc::realtime_context rc;
 
-    [[ maybe_unused ]] auto res = calloc (1024, 4);
+    [[ maybe_unused ]] volatile auto res = calloc (1024, 4);
 
     return 0;
 }

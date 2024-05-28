@@ -6,7 +6,7 @@ void sleep_non_realtime()
 {
     using namespace std::chrono_literals;
 
-    non_realtime_context nrc;
+    rtc::non_realtime_context nrc;
     std::this_thread::sleep_for (1s);
 }
 
@@ -16,7 +16,7 @@ int main()
 
     std::thread t1 ([&]
                     {
-                        realtime_context rc;
+                        rtc::realtime_context rc;
 
                         std::shared_lock l (m);
                         sleep_non_realtime();
@@ -24,7 +24,7 @@ int main()
 
     std::thread t2 ([&]
                     {
-                        realtime_context rc;
+                        rtc::realtime_context rc;
 
                         std::shared_lock l (m);
                         sleep_non_realtime();

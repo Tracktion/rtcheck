@@ -5,10 +5,12 @@
 
 int main()
 {
-    realtime_context rc;
-
     std::vector<int> vec;
-    vec.reserve (42);
+
+    {
+        rtc::realtime_context rc;
+        vec.reserve (42);
+    }
 
     return 0;
 }

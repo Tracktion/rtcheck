@@ -3,12 +3,12 @@
 
 struct doubles
 {
-    double d[4];
+    double d[8];
 };
 
 int main()
 {
-    realtime_context rc;
+    rtc::realtime_context rc;
     doubles d;
     std::function<void()> fn = [d] { };
 

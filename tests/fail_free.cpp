@@ -1,11 +1,11 @@
 #include <lib_rt_check.h>
-
+#include <memory>
 
 int main()
 {
-    auto res = malloc (1024);
+    volatile auto res = malloc (1024);
 
-    realtime_context rc;
+    rtc::realtime_context rc;
     free (res);
 
     return 0;

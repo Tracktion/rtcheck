@@ -3,6 +3,7 @@
 #include <sys/types.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <iostream>
 #include <lib_rt_check.h>
 
 int main()
@@ -30,7 +31,7 @@ int main()
     int res;
 
     {
-        realtime_context rc;
+        rtc::realtime_context rc;
         res = munmap(map, size);
     }
 

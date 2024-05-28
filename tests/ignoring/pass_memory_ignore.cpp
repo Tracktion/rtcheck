@@ -1,9 +1,10 @@
+#include <memory>
 #include <lib_rt_check.h>
 
 int main()
 {
-    realtime_context rc;
-    disable_checks_for_thread (check_flags::memory);
+    rtc::realtime_context rc;
+    rtc::disable_checks_for_thread (rtc::check_flags::memory);
 
     auto res = malloc (1024);
     res = realloc(res, 1024 * 2);

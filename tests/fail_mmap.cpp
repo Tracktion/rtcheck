@@ -3,6 +3,7 @@
 #include <sys/types.h>
 #include <fcntl.h>
 #include <unistd.h>
+#include <iostream>
 #include <lib_rt_check.h>
 
 int main()
@@ -22,7 +23,7 @@ int main()
     char* map = nullptr;
 
     {
-        realtime_context rc;
+        rtc::realtime_context rc;
         map = (char *) mmap (0, size, PROT_READ, MAP_PRIVATE, fd, 0);
     }
 

@@ -4,7 +4,7 @@
 #if __APPLE__
 int main()
 {
-  realtime_context rc;
+  rtc::realtime_context rc;
   thread_local std::array<std::byte, 10 * 1024 * 1024> ten_megabytes;
   ten_megabytes[0] = std::byte {1};
 

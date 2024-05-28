@@ -8,7 +8,7 @@
 
 int main()
 {
-    realtime_context rc;
+    rtc::realtime_context rc;
 
     namespace fs = std::filesystem;
 

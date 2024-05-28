@@ -5,7 +5,7 @@ int main()
 {
     std::thread t ([] {});
 
-    realtime_context rc;
+    rtc::realtime_context rc;
     t.join();
 
     return 0;

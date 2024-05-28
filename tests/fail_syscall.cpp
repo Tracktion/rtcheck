@@ -5,7 +5,7 @@
 
 int main()
 {
-    realtime_context rc;
+    rtc::realtime_context rc;
 
     #pragma clang diagnostic push
     // syscall is deprecated, but still in use in libc++
