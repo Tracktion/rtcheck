@@ -5,11 +5,11 @@ Dynamic library to catch run-time safety violations heavily inspired by [RADSan]
 - [x] Enable in scope
 - [x] Disable in scope
 - [x] Symbolicated stack-trace
-- [ ] Build-time flags for checks
-- [ ] Run-time options for checks
+- [x] Run-time options for checks
 - [x] Opt-in for own code
 - [x] linux
 - [x] macOS (malloc unsupported)
+- [ ] Delay time
 
 ## Functions (test = ✔)
 - Time
@@ -40,10 +40,10 @@ Dynamic library to catch run-time safety violations heavily inspired by [RADSan]
   - [x] pthread_rwlock_wrlock ✔
   - [x] pthread_spin_lock (linux)
 - Files
-  - [ ] open
-  - [ ] openat
+  - [x] open
+  - [x] openat
   - [ ] close
-  - [ ] fopen
+  - [x] fopen
   - [ ] fread
   - [ ] fwrite
   - [ ] fclose
@@ -53,7 +53,7 @@ Dynamic library to catch run-time safety violations heavily inspired by [RADSan]
   - [ ] fputs
   - [x] stat ✔
   - [ ] stat64
-  - [ ] fstat
+  - [x] fstat
   - [ ] fstat64
 - IO
   - [ ] socket
@@ -66,6 +66,8 @@ Dynamic library to catch run-time safety violations heavily inspired by [RADSan]
   - [ ] shutdown
 - System calls 
   - [x] syscall ✔
+  - [x] schedule
+  - [x] context_switch
 
 ## CI/Tests
 - Failures
@@ -76,6 +78,7 @@ Dynamic library to catch run-time safety violations heavily inspired by [RADSan]
 - Passes
   - [x] Atomic double
   - [x] Small std::function
+  - [ ] thread_local? (pass on linux, fail on macOS)
 - [x] Running on CI Linux
 - [x] Running on CI macOS
 - [x] Tests via CTest (can catch failues)

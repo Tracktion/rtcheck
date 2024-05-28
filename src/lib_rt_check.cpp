@@ -1,5 +1,7 @@
 #include <dlfcn.h>
 #include <stdarg.h>
+#include <utility>
+#include <bitset>
 
 #if __APPLE__
  #include <libkern/OSAtomic.h>
@@ -10,24 +12,30 @@
 #include "lib_rt_check.h"
 #include "interception.h"
 
+auto to_underlying (auto e)
+{
+    return static_cast<std::underlying_type_t<decltype(e)>> (e);
+}
+
 static bool has_initialised = false;
 
 #if __APPLE__
-realtime_context_state& get_realtime_context_state()
+struct malloc_zone_wrapper
 {
-    struct malloc_zone_wrapper
+    static void* internal_alloc (size_t size)
     {
-        static void* internal_alloc (size_t size)
-        {
-            return malloc_zone_malloc (malloc_default_zone(), size);
-        }
+        return malloc_zone_malloc (malloc_default_zone(), size);
+    }
 
-        static void internal_free (void *ptr)
-        {
-            malloc_zone_free (malloc_default_zone(), ptr);
-        }
-    };
+    static void internal_free (void *ptr)
+    {
+        malloc_zone_free (malloc_default_zone(), ptr);
+    }
+};
 
+template<typename Type>
+Type& get_thead_local_variable()
+{
     static pthread_key_t key;
     static pthread_once_t key_once = PTHREAD_ONCE_INIT;
 
@@ -39,22 +47,38 @@ realtime_context_state& get_realtime_context_state()
 
     pthread_once (&key_once, make_tls_key);
 
-    auto *ptr = static_cast<realtime_context_state*> (pthread_getspecific (key));
+    auto *ptr = static_cast<Type*> (pthread_getspecific (key));
 
     if (ptr == nullptr)
     {
-        ptr = static_cast<realtime_context_state*> (malloc_zone_wrapper::internal_alloc(sizeof (realtime_context_state)));
-        new(ptr) realtime_context_state();
+        ptr = static_cast<Type*> (malloc_zone_wrapper::internal_alloc(sizeof (Type)));
+        new(ptr) Type();
         pthread_setspecific (key, ptr);
     }
 
     return *ptr;
+}
+
+realtime_context_state& get_realtime_context_state()
+{
+    return get_thead_local_variable<realtime_context_state>();
+}
+
+std::bitset<64>& get_disabled_flags_for_thread()
+{
+    return get_thead_local_variable<std::bitset<64>>();
 }
 #else
 realtime_context_state& get_realtime_context_state()
 {
     thread_local realtime_context_state rcs;
     return rcs;
+}
+
+std::bitset<64>& get_disabled_flags_for_thread()
+{
+    thread_local std::bitset<64> disabled_flags;
+    return disabled_flags;
 }
 #endif
 
@@ -79,13 +103,64 @@ void log_function_if_realtime_context (const char* function_name)
         std::exit (1);
 }
 
+void log_function_if_realtime_context_and_enabled (check_flags flag, const char* function_name)
+{
+    if (! has_initialised)
+        return;
+
+    if (is_check_enabled_for_thread (flag))
+        log_function_if_realtime_context (function_name);
+}
+
+//==============================================================================
+void disable_checks_for_thread (uint64_t flags)
+{
+    get_disabled_flags_for_thread() = flags;
+}
+
+void disable_checks_for_thread (check_flags flags)
+{
+    disable_checks_for_thread(static_cast<uint64_t> (flags));
+}
+
+bool are_all_bits_enabled (uint64_t flags, std::bitset<64> disabled_bits)
+{
+    assert(static_cast<uint64_t> (flags) <= std::numeric_limits<uint64_t>::max());
+    const std::bitset<64> bits (flags);
+    const auto disabled_bits_interested_in = disabled_bits & bits;
+
+    return (bits ^ disabled_bits_interested_in) == bits;
+}
+
+#ifndef NDEBUG
+    struct check_flags_tests
+    {
+        check_flags_tests()
+        {
+            assert(! are_all_bits_enabled (to_underlying (check_flags::malloc), 0b1));
+            assert(! are_all_bits_enabled (to_underlying (check_flags::malloc) + to_underlying (check_flags::realloc), 0b101));
+            assert(are_all_bits_enabled (to_underlying (check_flags::malloc) + to_underlying (check_flags::calloc), 0b100));
+            assert(are_all_bits_enabled (to_underlying (check_flags::syscall) + to_underlying (check_flags::openat), 0b0));
+            assert(! are_all_bits_enabled (to_underlying (check_flags::syscall) + to_underlying (check_flags::openat), 0b10010000000000000000000000000000000));
+        }
+    };
+
+    static check_flags_tests check_flags_tests;
+#endif
+
+bool is_check_enabled_for_thread (check_flags check)
+{
+    assert(std::bitset<64> (static_cast<uint64_t> (check)).count() == 1 && "Only one flag can be check with this function");
+    return are_all_bits_enabled (static_cast<uint64_t> (check), get_disabled_flags_for_thread());
+}
+
 
 //==============================================================================
 // memory
 //==============================================================================
 INTERCEPTOR(void*, malloc, size_t size)
 {
-    log_function_if_realtime_context (__func__);
+    log_function_if_realtime_context_and_enabled (check_flags::malloc, __func__);
     INTERCEPT_FUNCTION(void*, malloc, size_t);
 
     return REAL(malloc)(size);
@@ -94,7 +169,7 @@ INTERCEPTOR(void*, malloc, size_t size)
 
 INTERCEPTOR(void*, calloc, size_t size, size_t item_size)
 {
-    log_function_if_realtime_context (__func__);
+    log_function_if_realtime_context_and_enabled (check_flags::calloc, __func__);
 
     INTERCEPT_FUNCTION(void*, calloc, size_t, size_t);
     return REAL(calloc)(size, item_size);
@@ -102,7 +177,7 @@ INTERCEPTOR(void*, calloc, size_t size, size_t item_size)
 
 INTERCEPTOR(void*, realloc, void *ptr, size_t new_size)
 {
-    log_function_if_realtime_context (__func__);
+    log_function_if_realtime_context_and_enabled (check_flags::realloc, __func__);
 
     INTERCEPT_FUNCTION(void*, realloc, void*, size_t);
     return REAL(realloc)(ptr, new_size);
@@ -111,7 +186,7 @@ INTERCEPTOR(void*, realloc, void *ptr, size_t new_size)
 #ifdef __APPLE__
 INTERCEPTOR(void *, reallocf, void *ptr, size_t size)
 {
-    log_function_if_realtime_context (__func__);
+    log_function_if_realtime_context_and_enabled (check_flags::reallocf, __func__);
 
     INTERCEPT_FUNCTION(void*, reallocf, void*, size_t);
     return REAL(reallocf)(ptr, size);
@@ -120,7 +195,7 @@ INTERCEPTOR(void *, reallocf, void *ptr, size_t size)
 
 INTERCEPTOR(void*, valloc, size_t size)
 {
-    log_function_if_realtime_context (__func__);
+    log_function_if_realtime_context_and_enabled (check_flags::valloc, __func__);
 
     INTERCEPT_FUNCTION(void*, valloc, size_t);
     return REAL(valloc)(size);
@@ -128,7 +203,7 @@ INTERCEPTOR(void*, valloc, size_t size)
 
 INTERCEPTOR(void, free, void* ptr)
 {
-    log_function_if_realtime_context (__func__);
+    log_function_if_realtime_context_and_enabled (check_flags::free, __func__);
     INTERCEPT_FUNCTION(void, free, void*);
 
     return REAL(free)(ptr);
@@ -136,7 +211,7 @@ INTERCEPTOR(void, free, void* ptr)
 
 INTERCEPTOR(int, posix_memalign, void **memptr, size_t alignment, size_t size)
 {
-    log_function_if_realtime_context (__func__);
+    log_function_if_realtime_context_and_enabled (check_flags::posix_memalign, __func__);
 
     INTERCEPT_FUNCTION(int, posix_memalign, void**, size_t, size_t);
     return REAL(posix_memalign)(memptr, alignment, size);
@@ -144,7 +219,7 @@ INTERCEPTOR(int, posix_memalign, void **memptr, size_t alignment, size_t size)
 
 INTERCEPTOR(void *, mmap, void* addr, size_t length, int prot, int flags, int fd, off_t offset)
 {
-    log_function_if_realtime_context (__func__);
+    log_function_if_realtime_context_and_enabled (check_flags::mmap, __func__);
 
     INTERCEPT_FUNCTION(void*, mmap, void*, size_t, int, int, int, off_t);
     return REAL(mmap)(addr, length, prot, flags, fd, offset);
@@ -152,7 +227,7 @@ INTERCEPTOR(void *, mmap, void* addr, size_t length, int prot, int flags, int fd
 
 INTERCEPTOR(int, munmap, void* addr, size_t length)
 {
-    log_function_if_realtime_context (__func__);
+    log_function_if_realtime_context_and_enabled (check_flags::munmap, __func__);
 
     INTERCEPT_FUNCTION(int, munmap, void*, size_t);
     return REAL(munmap)(addr, length);
@@ -164,14 +239,14 @@ INTERCEPTOR(int, munmap, void* addr, size_t length)
 //==============================================================================
 INTERCEPTOR(int, pthread_create, pthread_t *thread, const pthread_attr_t *attr, void *(*start_routine)(void *), void *arg)
 {
-    log_function_if_realtime_context (__func__);
+    log_function_if_realtime_context_and_enabled (check_flags::pthread_create, __func__);
     INTERCEPT_FUNCTION(int, pthread_create, pthread_t *, const pthread_attr_t *, void *(*)(void *), void *);
     return REAL(pthread_create)(thread, attr, start_routine, arg);
 }
 
 INTERCEPTOR(int, pthread_mutex_lock, pthread_mutex_t *mutex)
 {
-    log_function_if_realtime_context (__func__);
+    log_function_if_realtime_context_and_enabled (check_flags::pthread_mutex_lock, __func__);
 
     INTERCEPT_FUNCTION(int, pthread_mutex_lock, pthread_mutex_t*);
     return REAL(pthread_mutex_lock)(mutex);
@@ -179,7 +254,7 @@ INTERCEPTOR(int, pthread_mutex_lock, pthread_mutex_t *mutex)
 
 INTERCEPTOR(int, pthread_mutex_unlock, pthread_mutex_t *mutex)
 {
-    log_function_if_realtime_context (__func__);
+    log_function_if_realtime_context_and_enabled (check_flags::pthread_mutex_unlock, __func__);
 
     INTERCEPT_FUNCTION(int, pthread_mutex_unlock, pthread_mutex_t*);
     return REAL(pthread_mutex_unlock)(mutex);
@@ -187,7 +262,7 @@ INTERCEPTOR(int, pthread_mutex_unlock, pthread_mutex_t *mutex)
 
 INTERCEPTOR(int, pthread_join, pthread_t thread, void **value_ptr)
 {
-    log_function_if_realtime_context (__func__);
+    log_function_if_realtime_context_and_enabled (check_flags::pthread_join, __func__);
 
     INTERCEPT_FUNCTION(int, pthread_join, pthread_t, void **);
     return REAL(pthread_join)(thread, value_ptr);
@@ -195,7 +270,7 @@ INTERCEPTOR(int, pthread_join, pthread_t thread, void **value_ptr)
 
 INTERCEPTOR(int, pthread_cond_signal, pthread_cond_t *cond)
 {
-    log_function_if_realtime_context (__func__);
+    log_function_if_realtime_context_and_enabled (check_flags::pthread_cond_signal, __func__);
 
     INTERCEPT_FUNCTION(int, pthread_cond_signal, pthread_cond_t *);
     return REAL(pthread_cond_signal)(cond);
@@ -203,7 +278,7 @@ INTERCEPTOR(int, pthread_cond_signal, pthread_cond_t *cond)
 
 INTERCEPTOR(int, pthread_cond_broadcast, pthread_cond_t *cond)
 {
-    log_function_if_realtime_context (__func__);
+    log_function_if_realtime_context_and_enabled (check_flags::pthread_cond_broadcast, __func__);
 
     INTERCEPT_FUNCTION(int, pthread_cond_broadcast, pthread_cond_t *);
     return REAL(pthread_cond_broadcast)(cond);
@@ -211,7 +286,7 @@ INTERCEPTOR(int, pthread_cond_broadcast, pthread_cond_t *cond)
 
 INTERCEPTOR(int, pthread_cond_wait, pthread_cond_t *cond, pthread_mutex_t *mutex)
 {
-    log_function_if_realtime_context (__func__);
+    log_function_if_realtime_context_and_enabled (check_flags::pthread_cond_wait, __func__);
 
     INTERCEPT_FUNCTION(int, pthread_cond_wait, pthread_cond_t *, pthread_mutex_t *);
     return REAL(pthread_cond_wait)(cond, mutex);
@@ -220,7 +295,7 @@ INTERCEPTOR(int, pthread_cond_wait, pthread_cond_t *cond, pthread_mutex_t *mutex
 INTERCEPTOR(int, pthread_rwlock_init, pthread_rwlock_t *rwlock,
             const pthread_rwlockattr_t *attr)
 {
-    log_function_if_realtime_context (__func__);
+    log_function_if_realtime_context_and_enabled (check_flags::pthread_rwlock_init, __func__);
 
     INTERCEPT_FUNCTION(int, pthread_rwlock_init, pthread_rwlock_t *, const pthread_rwlockattr_t *);
     return REAL(pthread_rwlock_init)(rwlock, attr);
@@ -228,7 +303,7 @@ INTERCEPTOR(int, pthread_rwlock_init, pthread_rwlock_t *rwlock,
 
 INTERCEPTOR(int, pthread_rwlock_destroy, pthread_rwlock_t *rwlock)
 {
-    log_function_if_realtime_context (__func__);
+    log_function_if_realtime_context_and_enabled (check_flags::pthread_rwlock_destroy, __func__);
 
     INTERCEPT_FUNCTION(int, pthread_rwlock_destroy, pthread_rwlock_t *);
     return REAL(pthread_rwlock_destroy)(rwlock);
@@ -237,7 +312,7 @@ INTERCEPTOR(int, pthread_rwlock_destroy, pthread_rwlock_t *rwlock)
 INTERCEPTOR(int, pthread_cond_timedwait, pthread_cond_t *cond,
             pthread_mutex_t *mutex, const timespec *ts)
 {
-    log_function_if_realtime_context (__func__);
+    log_function_if_realtime_context_and_enabled (check_flags::pthread_cond_timedwait, __func__);
 
     INTERCEPT_FUNCTION(int, pthread_cond_timedwait, pthread_cond_t *,
                         pthread_mutex_t *, const timespec *);
@@ -246,7 +321,7 @@ INTERCEPTOR(int, pthread_cond_timedwait, pthread_cond_t *cond,
 
 INTERCEPTOR(int, pthread_rwlock_rdlock, pthread_rwlock_t *lock)
 {
-    log_function_if_realtime_context (__func__);
+    log_function_if_realtime_context_and_enabled (check_flags::pthread_rwlock_rdlock, __func__);
 
     INTERCEPT_FUNCTION(int, pthread_rwlock_rdlock, pthread_rwlock_t *);
     return REAL(pthread_rwlock_rdlock)(lock);
@@ -254,7 +329,7 @@ INTERCEPTOR(int, pthread_rwlock_rdlock, pthread_rwlock_t *lock)
 
 INTERCEPTOR(int, pthread_rwlock_unlock, pthread_rwlock_t *lock)
 {
-    log_function_if_realtime_context (__func__);
+    log_function_if_realtime_context_and_enabled (check_flags::pthread_rwlock_unlock, __func__);
 
     INTERCEPT_FUNCTION(int, pthread_rwlock_unlock, pthread_rwlock_t *);
     return REAL(pthread_rwlock_unlock)(lock);
@@ -262,7 +337,7 @@ INTERCEPTOR(int, pthread_rwlock_unlock, pthread_rwlock_t *lock)
 
 INTERCEPTOR(int, pthread_rwlock_wrlock, pthread_rwlock_t *lock)
 {
-    log_function_if_realtime_context (__func__);
+    log_function_if_realtime_context_and_enabled (check_flags::pthread_rwlock_wrlock, __func__);
 
     INTERCEPT_FUNCTION(int, pthread_rwlock_wrlock, pthread_rwlock_t *);
     return REAL(pthread_rwlock_wrlock)(lock);
@@ -272,14 +347,14 @@ INTERCEPTOR(int, pthread_rwlock_wrlock, pthread_rwlock_t *lock)
 #ifndef __APPLE__
 INTERCEPTOR(int, pthread_spin_lock, pthread_spinlock_t *spinlock)
 {
-    log_function_if_realtime_context (__func__);
+    log_function_if_realtime_context_and_enabled (check_flags::pthread_spin_lock, __func__);
     INTERCEPT_FUNCTION(int, pthread_spin_lock, pthread_spinlock_t*);
     return REAL(pthread_spin_lock)(spinlock);
 }
 
 INTERCEPTOR(int, futex, int *uaddr, int op, int val, const struct timespec *timeout, int *uaddr2, int val3)
 {
-    log_function_if_realtime_context (__func__);
+    log_function_if_realtime_context_and_enabled (check_flags::futex, __func__);
 
     INTERCEPT_FUNCTION(int, futex, int*, int, int, const struct timespec*, int*, int);
     return REAL(futex)(uaddr, op, val, timeout, uaddr2, val3);
@@ -291,7 +366,7 @@ INTERCEPTOR(int, futex, int *uaddr, int op, int val, const struct timespec *time
 //==============================================================================
 INTERCEPTOR(unsigned int, sleep, unsigned int seconds)
 {
-    log_function_if_realtime_context (__func__);
+    log_function_if_realtime_context_and_enabled (check_flags::sleep, __func__);
 
     static auto real = (unsigned int (*)(unsigned int))dlsym(RTLD_NEXT, "sleep");
     return REAL(sleep)(seconds);
@@ -299,7 +374,7 @@ INTERCEPTOR(unsigned int, sleep, unsigned int seconds)
 
 INTERCEPTOR(int, usleep, useconds_t useconds)
 {
-    log_function_if_realtime_context (__func__);
+    log_function_if_realtime_context_and_enabled (check_flags::usleep, __func__);
 
     INTERCEPT_FUNCTION(int, usleep, useconds_t);
     return REAL(usleep)(useconds);
@@ -307,7 +382,7 @@ INTERCEPTOR(int, usleep, useconds_t useconds)
 
 INTERCEPTOR(int, nanosleep, const struct timespec *req, struct timespec * rem)
 {
-    log_function_if_realtime_context (__func__);
+    log_function_if_realtime_context_and_enabled (check_flags::nanosleep, __func__);
 
     INTERCEPT_FUNCTION(int, nanosleep, const struct timespec *, struct timespec *);
     return REAL(nanosleep)(req, rem);
@@ -318,7 +393,7 @@ INTERCEPTOR(int, nanosleep, const struct timespec *req, struct timespec * rem)
 //==============================================================================
 INTERCEPTOR(int, stat, const char* pathname, struct stat* statbuf)
 {
-    log_function_if_realtime_context (__func__);
+    log_function_if_realtime_context_and_enabled (check_flags::stat, __func__);
 
     INTERCEPT_FUNCTION(int, stat, const char*, struct stat*);
     return REAL(stat)(pathname, statbuf);
@@ -326,7 +401,7 @@ INTERCEPTOR(int, stat, const char* pathname, struct stat* statbuf)
 
 INTERCEPTOR(int, fstat, int fd, struct stat *statbuf)
 {
-    log_function_if_realtime_context (__func__);
+    log_function_if_realtime_context_and_enabled (check_flags::fstat, __func__);
 
     INTERCEPT_FUNCTION(int, fstat, int, struct stat*);
     return REAL(fstat)(fd, statbuf);
@@ -334,7 +409,7 @@ INTERCEPTOR(int, fstat, int fd, struct stat *statbuf)
 
 INTERCEPTOR(int, open, const char *path, int oflag, ...)
 {
-    log_function_if_realtime_context (__func__);
+    log_function_if_realtime_context_and_enabled (check_flags::open, __func__);
 
     INTERCEPT_FUNCTION(int, open, const char*, int, ...);
 
@@ -348,7 +423,7 @@ INTERCEPTOR(int, open, const char *path, int oflag, ...)
 
 INTERCEPTOR(FILE*, fopen, const char *path, const char *mode)
 {
-    log_function_if_realtime_context (__func__);
+    log_function_if_realtime_context_and_enabled (check_flags::fopen, __func__);
 
     INTERCEPT_FUNCTION(FILE*, fopen, const char*, const char*);
     auto result = REAL(fopen)(path, mode);
@@ -358,7 +433,7 @@ INTERCEPTOR(FILE*, fopen, const char *path, const char *mode)
 
 INTERCEPTOR(int, openat, int fd, const char *path, int oflag, ...)
 {
-    log_function_if_realtime_context (__func__);
+    log_function_if_realtime_context_and_enabled (check_flags::openat, __func__);
 
     va_list args;
     va_start(args, oflag);
@@ -376,7 +451,7 @@ INTERCEPTOR(int, openat, int fd, const char *path, int oflag, ...)
 #ifndef __APPLE__
 INTERCEPTOR(long, schedule, void)
 {
-    log_function_if_realtime_context (__func__);
+    log_function_if_realtime_context_and_enabled (check_flags::schedule, __func__);
 
     INTERCEPT_FUNCTION(long, schedule, void);
     return REAL(schedule)();
@@ -384,16 +459,20 @@ INTERCEPTOR(long, schedule, void)
 
 INTERCEPTOR(long, context_switch, struct task_struct *prev, struct task_struct *next)
 {
-    log_function_if_realtime_context (__func__);
+    log_function_if_realtime_context_and_enabled (check_flags::context_switch, __func__);
 
     INTERCEPT_FUNCTION(long, context_switch, struct task_struct *, struct task_struct *);
     return REAL(context_switch)(prev, next);
 }
 #endif
 
+#pragma clang diagnostic push
+// syscall is deprecated, but still in use in libc++
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+
 INTERCEPTOR(long int, syscall, long int sid, ...)
 {
-    log_function_if_realtime_context (__func__);
+    log_function_if_realtime_context_and_enabled (check_flags::syscall, __func__);
 
     va_list args;
     va_start(args, sid);
@@ -402,6 +481,8 @@ INTERCEPTOR(long int, syscall, long int sid, ...)
 
     return REAL(syscall)(sid);
 }
+
+#pragma clang diagnostic pop
 
 
 //==============================================================================
@@ -415,13 +496,13 @@ INTERCEPTOR(long int, syscall, long int sid, ...)
 
 INTERCEPTOR(void, OSSpinLockLock, volatile OSSpinLock *lock)
 {
-    log_function_if_realtime_context (__func__);
+    log_function_if_realtime_context_and_enabled (check_flags::OSSpinLockLock, __func__);
     return REAL(OSSpinLockLock)(lock);
 }
 
 INTERCEPTOR(void, os_unfair_lock_lock, os_unfair_lock_t lock)
 {
-    log_function_if_realtime_context (__func__);
+    log_function_if_realtime_context_and_enabled (check_flags::os_unfair_lock_lock, __func__);
     return REAL(os_unfair_lock_lock)(lock);
 }
 
