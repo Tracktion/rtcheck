@@ -566,7 +566,7 @@ INTERCEPTOR(int, openat, int fd, const char *path, int oflag, ...)
     mode_t mode = va_arg(args, int);
     va_end(args);
 
-    return REAL(openat)(fd, path, oflag, args);
+    return REAL(openat)(fd, path, oflag, mode);
 }
 
 INTERCEPTOR(int, fcntl, int filedes, int cmd, ...)
