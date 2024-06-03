@@ -573,6 +573,8 @@ INTERCEPTOR(int, fcntl, int filedes, int cmd, ...)
 {
     log_function_if_realtime_context_and_enabled (rtc::check_flags::fcntl, __func__);
 
+    INTERCEPT_FUNCTION(int, fcntl, int, int, ...);
+
     va_list args;
     va_start(args, cmd);
 
