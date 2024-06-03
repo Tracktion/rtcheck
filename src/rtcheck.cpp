@@ -233,7 +233,9 @@ struct check_flags_tests
         assert(! are_all_bits_enabled (to_underlying (check_flags::malloc) + to_underlying (check_flags::realloc), 0b101));
         assert(are_all_bits_enabled (to_underlying (check_flags::malloc) + to_underlying (check_flags::calloc), 0b100));
         assert(are_all_bits_enabled (to_underlying (check_flags::syscall) + to_underlying (check_flags::openat), 0b0));
-        assert(! are_all_bits_enabled (to_underlying (check_flags::syscall) + to_underlying (check_flags::openat), 0b10010000000000000000000000000000000));
+        auto a1 = to_underlying (check_flags::syscall);
+        auto a2 = to_underlying (check_flags::openat);
+        assert(! are_all_bits_enabled (to_underlying (check_flags::syscall) + to_underlying (check_flags::openat), 0b10001000000000000000000000000000000000));
     }
 };
 
@@ -245,6 +247,7 @@ bool is_check_enabled_for_thread (check_flags check)
     assert(std::bitset<64> (static_cast<uint64_t> (check)).count() == 1 && "Only one flag can be check with this function");
     return are_all_bits_enabled (static_cast<uint64_t> (check), get_disabled_flags_for_thread());
 }
+
 
 //==============================================================================
 // details
@@ -536,10 +539,10 @@ INTERCEPTOR(int, open, const char *path, int oflag, ...)
 
     va_list args;
     va_start(args, oflag);
-    auto result = REAL(open)(path, oflag, args);
+    const mode_t mode = va_arg(args, int);
     va_end(args);
 
-    return result;
+    return REAL(open)(path, oflag, mode);
 }
 
 INTERCEPTOR(FILE*, fopen, const char *path, const char *mode)
@@ -556,15 +559,27 @@ INTERCEPTOR(int, openat, int fd, const char *path, int oflag, ...)
 {
     log_function_if_realtime_context_and_enabled (rtc::check_flags::openat, __func__);
 
+    INTERCEPT_FUNCTION(int, openat, int, const char*, int, ...);
+
     va_list args;
     va_start(args, oflag);
-    INTERCEPT_FUNCTION(int, openat, int, const char*, int, ...);
-    auto result = REAL(openat)(fd, path, oflag, args);
+    mode_t mode = va_arg(args, int);
     va_end(args);
 
-    return result;
+    return REAL(openat)(fd, path, oflag, args);
 }
 
+INTERCEPTOR(int, fcntl, int filedes, int cmd, ...)
+{
+    log_function_if_realtime_context_and_enabled (rtc::check_flags::fcntl, __func__);
+
+    va_list args;
+    va_start(args, cmd);
+    void *arg = va_arg(args, void*);
+    va_end(args);
+
+    return fcntl(filedes, cmd, arg);
+}
 
 //==============================================================================
 // system
@@ -591,13 +606,17 @@ INTERCEPTOR(long, context_switch, struct task_struct *prev, struct task_struct *
 // syscall is deprecated, but still in use in libc++
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 
+#define FORWARD_ARGS(func, ...) func(__VA_ARGS__)
+#define EXPAND_ARGS(...) (__VA_ARGS__)
+
 INTERCEPTOR(long int, syscall, long int sid, ...)
 {
     log_function_if_realtime_context_and_enabled (rtc::check_flags::syscall, __func__);
 
+    INTERCEPT_FUNCTION(long, syscall, long, ...);
+
     va_list args;
     va_start(args, sid);
-    INTERCEPT_FUNCTION(long, syscall, long, ...);
     va_end(args);
 
     return REAL(syscall)(sid);

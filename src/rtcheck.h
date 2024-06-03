@@ -106,8 +106,8 @@ namespace rtc
         pthread_rwlock_wrlock           = 1 << 21,
         pthread_spin_lock               = 1 << 22,      // linux only
         futex                           = 1 << 23,      // linux only
-        OSSpinLockLock                  = 1ull << 35,   // apple only
-        os_unfair_lock_lock             = 1ull << 36,   // apple only
+        OSSpinLockLock                  = 1 << 24,      // apple only
+        os_unfair_lock_lock             = 1 << 25,      // apple only
 
         threads = pthread_create | pthread_mutex_lock | pthread_mutex_unlock | pthread_join
                     | pthread_cond_signal | pthread_cond_broadcast | pthread_cond_wait
@@ -118,29 +118,30 @@ namespace rtc
         //==============================================================================
         // sleeping
         //==============================================================================
-        sleep                           = 1 << 24,
-        usleep                          = 1 << 25,
-        nanosleep                       = 1 << 26,
+        sleep                           = 1 << 26,
+        usleep                          = 1 << 27,
+        nanosleep                       = 1 << 28,
 
         sleeping                        = sleep | usleep | nanosleep,
 
         //==============================================================================
         // files
         //==============================================================================
-        stat                            = 1 << 27,
-        fstat                           = 1 << 28,
-        open                            = 1 << 29,
-        fopen                           = 1 << 30,
-        openat                          = 1ull << 31,
+        stat                            = 1 << 29,
+        fstat                           = 1 << 30,
+        open                            = 1ull << 31,
+        fopen                           = 1ull << 32,
+        openat                          = 1ull << 33,
+        fcntl                           = 1ull << 34,
 
         files                           = stat | fstat | open | fopen | openat,
 
         //==============================================================================
         // system
         //==============================================================================
-        schedule                        = 1ull << 32,  // linux only
-        context_switch                  = 1ull << 33,  // linux only
-        syscall                         = 1ull << 34,
+        schedule                        = 1ull << 35,  // linux only
+        context_switch                  = 1ull << 36,  // linux only
+        syscall                         = 1ull << 37,
 
         sys                             = schedule | context_switch | syscall
     };

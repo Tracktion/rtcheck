@@ -120,14 +120,14 @@ void set_error_mode (error_mode);
   - [x] pthread_rwlock_wrlock ✔
   - [x] pthread_spin_lock (linux)
 - Files
-  - [x] open
+  - [x] open ✔
   - [x] openat
   - [ ] close
   - [x] fopen
   - [ ] fread
   - [ ] fwrite
   - [ ] fclose
-  - [ ] fcntl
+  - [x] fcntl ✔
   - [ ] creat
   - [ ] puts
   - [ ] fputs
