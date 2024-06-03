@@ -1,3 +1,5 @@
+[![Build](https://github.com/Tracktion/rtcheck/actions/workflows/build.yml/badge.svg)](https://github.com/Tracktion/rtcheck/actions/workflows/build.yml)
+
 # rtcheck
 Dynamic library to catch run-time safety violations heavily inspired by [RADSan](https://github.com/realtime-sanitizer/radsan)
 
