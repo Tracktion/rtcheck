@@ -20,7 +20,7 @@ foreach(file ${test_files})
   )
 
   target_link_libraries(${test_name}
-      rt_check
+      rtcheck
   )
 
   if (${CMAKE_SYSTEM_NAME} STREQUAL Linux)

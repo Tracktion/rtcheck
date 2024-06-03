@@ -1,6 +1,6 @@
 #include <unistd.h>
 #include <time.h>
-#include <lib_rt_check.h>
+#include <rtcheck.h>
 
 int main()
 {

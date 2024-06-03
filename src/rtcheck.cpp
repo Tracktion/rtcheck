@@ -18,7 +18,7 @@
  #include <cxxabi.h>
 #endif
 
-#include "lib_rt_check.h"
+#include "rtcheck.h"
 #include "interception.h"
 
 namespace rtc
@@ -637,6 +637,6 @@ INTERCEPTOR(void, os_unfair_lock_lock, os_unfair_lock_t lock)
 __attribute__((constructor))
 void init()
 {
-    printf ("Hello librt_check!\n");
+    printf ("Hello rtcheck!\n");
     rtc::has_initialised = true;
 }

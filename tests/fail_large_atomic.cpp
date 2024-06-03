@@ -1,5 +1,5 @@
 #include <atomic>
-#include <lib_rt_check.h>
+#include <rtcheck.h>
 
 struct doubles
 {

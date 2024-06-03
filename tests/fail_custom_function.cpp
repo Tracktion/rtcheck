@@ -1,4 +1,4 @@
-#include <lib_rt_check.h>
+#include <rtcheck.h>
 
 void my_func()
 {

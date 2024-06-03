@@ -1,6 +1,6 @@
 #include <mutex>
 #include <thread>
-#include <lib_rt_check.h>
+#include <rtcheck.h>
 
 void sleep_non_realtime()
 {

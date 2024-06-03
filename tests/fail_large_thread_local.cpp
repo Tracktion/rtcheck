@@ -1,5 +1,5 @@
 #include <thread>
-#include <lib_rt_check.h>
+#include <rtcheck.h>
 
 #if __APPLE__
 int main()
