@@ -11,9 +11,43 @@ Dynamic library to catch run-time safety violations heavily inspired by [RADSan]
 - [Error modes](#error-modes)
 
 ## Adding rtcheck to a project
+### CMake option 1: Git Submodule
+```
+git submodule add -b main https://github.com/Tracktion/rtcheck rtcheck
+```
+
+To update down the road:
+```
+git submodule update --remote --merge rtcheck
+```
+
+# Build rtcheck as part of your CMakeLists.txt
+```cmake
+add_subdirectory(rtcheck)
+```
+
+### CMake option 2: FetchContent
+```cmake
+Include(FetchContent)
+FetchContent_Declare(rtcheck
+    GIT_REPOSITORY https://github.com/Tracktion/rtcheck.git
+    GIT_TAG origin/main
+    SOURCE_DIR ${CMAKE_CURRENT_BINARY_DIR}/rtcheck)
+FetchContent_MakeAvailable(rtcheck)
+```
+
+### Link rtcheck to your CMake project
+```cmake
+target_link_libraries("YourProject" PRIVATE rtcheck)
+```
+
+Then include rtcheck in your source files:
+```c++
+#include <rtcheck.h>
+```
 
 ## Using rtcheck
-Simply add an instance of rtc::realtime_context at the start of the scope you want to check for real-time safety violations like this:  
+Simply add an instance of `rtc::realtime_context` at the start of the scope you want to check for real-time safety violations like this:  
 ```c++
 int main()
 {
