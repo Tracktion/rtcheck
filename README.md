@@ -21,7 +21,7 @@ To update down the road:
 git submodule update --remote --merge rtcheck
 ```
 
-# Build rtcheck as part of your CMakeLists.txt
+#### Build rtcheck as part of your CMakeLists.txt
 ```cmake
 add_subdirectory(rtcheck)
 ```
@@ -125,6 +125,7 @@ void set_error_mode (error_mode);
 - [x] Opt-in for own code
 - [x] linux
 - [x] macOS (malloc unsupported)
+- [ ] Add option to realtime_context constructor to disable checks for that scope
 - [ ] Delay time
 
 ## Functions (test = ✔)
