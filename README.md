@@ -203,3 +203,4 @@ void set_error_mode (error_mode);
 ## Packages
 - [ ] cpack
 - [ ] conan
+- [ ] vcpkg
