@@ -7,4 +7,7 @@ enable_testing()
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 add_subdirectory(src)
-add_subdirectory(tests)
+
+if(rtcheck_IS_TOP_LEVEL)
+    add_subdirectory(tests)
+endif()
