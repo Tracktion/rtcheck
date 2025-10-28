@@ -327,8 +327,11 @@ INTERCEPTOR(void*, valloc, size_t size)
 
 INTERCEPTOR(void, free, void* ptr)
 {
-    log_function_if_realtime_context_and_enabled (rtc::check_flags::free, __func__);
-    INTERCEPT_FUNCTION(void, free, void*);
+    if (ptr != nullptr)
+    {
+        log_function_if_realtime_context_and_enabled (rtc::check_flags::free, __func__);
+        INTERCEPT_FUNCTION(void, free, void*);
+    }
 
     return REAL(free)(ptr);
 }
