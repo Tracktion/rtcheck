@@ -9,10 +9,10 @@
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
 
-bool test_openCreatesFileWithProperMode()
+void test_openCreatesFileWithProperMode()
 {
     namespace fs = std::filesystem;
-    const fs::path temp_file = std::tmpnam (nullptr);
+    const fs::path temp_file = fs::temp_directory_path() / "test_file_XXXXXX";
 
     const int mode = S_IRGRP | S_IROTH | S_IRUSR | S_IWUSR;
     const int fd = open (temp_file.c_str(), O_CREAT | O_WRONLY, mode);
@@ -32,7 +32,7 @@ bool test_openCreatesFileWithProperMode()
 void test_fcntlFlockDiesWhenRealtime()
 {
     namespace fs = std::filesystem;
-    const fs::path temp_file = std::tmpnam (nullptr);
+    const fs::path temp_file = fs::temp_directory_path() / "test_file_XXXXXX";
     int fd = creat(temp_file.c_str(), S_IRUSR | S_IWUSR);
     assert(fd != -1);
 
@@ -47,6 +47,8 @@ void test_fcntlFlockDiesWhenRealtime()
         assert(fcntl(fd, F_GETLK, &lock) == 0);
         assert(lock.l_type == F_UNLCK);
     };
+
+    func();
 
     close(fd);
     std::remove (temp_file.c_str());
