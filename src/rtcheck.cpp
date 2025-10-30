@@ -260,7 +260,7 @@ struct check_flags_tests
         assert(are_all_bits_enabled (to_underlying (check_flags::syscall) + to_underlying (check_flags::openat), 0b0));
         auto a1 = to_underlying (check_flags::syscall);
         auto a2 = to_underlying (check_flags::openat);
-        assert(! are_all_bits_enabled (to_underlying (check_flags::syscall) + to_underlying (check_flags::openat), 0b10001000000000000000000000000000000000));
+        assert(! are_all_bits_enabled (to_underlying (check_flags::syscall) + to_underlying (check_flags::openat), 0b100010000000000000000000000000000000000));
     }
 };
 
@@ -686,6 +686,22 @@ INTERCEPTOR(void, os_unfair_lock_lock, os_unfair_lock_t lock)
 }
 
 #pragma clang diagnostic pop
+
+// Newer macOS versions use an internal _os_nospin_lock_lock which is interecpted as per LLVM's RTSan in this commit:
+// https://code.ornl.gov/llvm-doe/llvm-project/-/commit/481a55a3d9645a6bc1540d326319b78ad8ed8db1
+extern "C" {
+    // A pointer to this type is in the interface for `_os_nospin_lock_lock`, but
+    // it's an internal implementation detail of `os/lock.c` on Darwin, and
+    // therefore not available in any headers. As a workaround, we forward declare
+    // it here, which is enough to facilitate interception of _os_nospin_lock_lock.
+    struct _os_nospin_lock_s;
+    using _os_nospin_lock_t = _os_nospin_lock_s *;
+}
+
+INTERCEPTOR(void, _os_nospin_lock_lock, _os_nospin_lock_t lock) {
+    log_function_if_realtime_context_and_enabled (rtc::check_flags::os_unfair_lock_lock, __func__);
+    return REAL(_os_nospin_lock_lock)(lock);
+}
 
 #endif
 

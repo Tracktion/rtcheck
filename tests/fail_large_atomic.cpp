@@ -1,4 +1,6 @@
 #include <atomic>
+#include <cassert>
+#include <array>
 #include <rtcheck.h>
 
 struct doubles
@@ -9,7 +11,9 @@ struct doubles
 int main()
 {
     std::atomic<doubles> a;
-    doubles d;
+    assert (! a.is_lock_free());
+
+    doubles d { 1.0, 2.0, 3.0, 4.0 };
 
     rtc::realtime_context rc;
     a.store (d);
