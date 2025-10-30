@@ -7,6 +7,7 @@
 #include <numeric>
 #include <atomic>
 #include <execinfo.h>
+#include <regex>
 
 #if __APPLE__
  #include <libkern/OSAtomic.h>
@@ -28,21 +29,45 @@ auto to_underlying (auto e)
     return static_cast<std::underlying_type_t<decltype(e)>> (e);
 }
 
-inline std::string demangle (std::string name)
+inline std::string demangle (const std::string& name)
 {
-   #if __has_include (<cxxabi.h>)
+   #if __has_include(<cxxabi.h>)
     int status;
+    std::unique_ptr<char, decltype (&std::free)> demangled (
+        abi::__cxa_demangle (name.c_str(), nullptr, nullptr, &status),
+        &std::free);
 
-    if (char* demangled = abi::__cxa_demangle (name.c_str(), nullptr, nullptr, &status); status == 0)
-    {
-        std::string demangledString (demangled);
-        free (demangled);
-        return demangledString;
-    }
+    if (demangled && status == 0)
+        return std::string (demangled.get());
    #endif
 
     return name;
 }
+
+inline std::string extract_symbol (const std::string& line)
+{
+    // macOS/BSD format: "frame binary address symbol + offset"
+    if (line.find ("0x") != std::string::npos)
+    {
+        std::regex macPattern (R"(^\s*\d+\s+\S+\s+0x[0-9a-fA-F]+\s+(.+?)(?:\s+\+\s+\d+)?$)");
+        std::smatch match;
+
+        if (std::regex_match (line, match, macPattern))
+            return match[1].str();
+    }
+
+    // Linux format: "binary(symbol+offset) [address]"
+    {
+        size_t lparen = line.find ('(');
+        size_t plus = line.find ('+', lparen);
+
+        if (lparen != std::string::npos && plus != std::string::npos)
+            return line.substr (lparen + 1, plus - lparen - 1);
+    }
+
+    return line;
+}
+
 
 inline std::string get_stacktrace()
 {
@@ -53,7 +78,7 @@ inline std::string get_stacktrace()
     char** frameStrings = backtrace_symbols (stack, frames);
 
     for (auto i = (decltype (frames)) 0; i < frames; ++i)
-        (result.append (i, ' ') += demangle (frameStrings[i])) += "\n";
+        (result.append (i, ' ') += demangle (extract_symbol (frameStrings[i]))) += "\n";
 
     result += "\n";
     ::free (frameStrings);
