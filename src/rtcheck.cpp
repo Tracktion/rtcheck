@@ -223,7 +223,7 @@ void log_function_if_realtime_context (const char* function_name)
     if (name.starts_with (wrap_prefix))
         name = name.substr (wrap_prefix.length());
 
-    std::cerr << "Real-time violation: intercepted call to real-time unsafe function " << name << " in real-time context! Stack trace:\n" << get_stacktrace();
+    std::cerr << "Real-time violation: intercepted call to real-time unsafe function " << name << " in real-time context! Stack trace:\n" << get_stacktrace() << std::endl;
 
     if (get_error_mode() == error_mode::exit)
         std::exit (1);
