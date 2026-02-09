@@ -711,6 +711,5 @@ INTERCEPTOR(void, _os_nospin_lock_lock, _os_nospin_lock_t lock) {
 __attribute__((constructor))
 void init()
 {
-    printf ("Hello rtcheck!\n");
     rtc::has_initialised = true;
 }
